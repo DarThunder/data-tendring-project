@@ -1,0 +1,42 @@
+version: "3.8"
+
+services:
+  extractor:
+    build: ./extractor
+    volumes:
+      - ./extractor:/app
+    depends_on:
+      - kafka
+
+  kafka:
+    image: bitnamicharts/kafka:32.4.3
+    environment:
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - ALLOW_PLAINTEXT_LISTENER=yes
+
+  spark-streaming:
+    build: ./spark
+    volumes:
+      - ./spark:/app
+    depends_on:
+      - kafka
+      - redis
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+  dashboard:
+    build: ./dashboard
+    volumes:
+      - ./dashboard:/app
+    ports:
+      - "8501:8501"
+    depends_on:
+      - redis
