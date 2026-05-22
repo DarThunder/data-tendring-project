@@ -5,7 +5,7 @@ import redis
 
 spark = SparkSession.builder \
     .appName("EngagementPipeline") \
-    .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.0") \
+    .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1") \
     .getOrCreate()
 
 spark.sparkContext.setLogLevel("WARN")
@@ -24,6 +24,7 @@ df_kafka = spark \
     .option("kafka.bootstrap.servers", "kafka:9092") \
     .option("subscribe", "trending_raw") \
     .option("startingOffsets", "latest") \
+    .option("failOnDataLoss", "false") \
     .load()
 
 df_json = df_kafka.selectExpr("CAST(value AS STRING)") \

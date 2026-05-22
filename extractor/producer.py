@@ -19,21 +19,25 @@ def conn():
 
 ydl_opts = {
     'skip_download': True,      
-    'quiet': True,
+    'quiet': False,
+    'verbose': True,
     'extract_flat': False,
-    'playlist_end': 50
+    'playlist_end': 50,
+    'js_runtimes': {'node': {}},
+    'remote_components': {'ejs:github'},
 }
 
 def extract_send(producer):
     print("Iniciando extracción de metadatos de Tendencias...")
     with YoutubeDL(ydl_opts) as ydl:
         try:
-            info = ydl.extract_info('https://www.youtube.com/feed/trending', download=False)
+            print("Buscando videos virales...")
+            info = ydl.extract_info('ytsearch50:trending', download=False)
             
             if 'entries' in info:
-                videos = info['entries'][:50]
+                videos = info['entries']
                 for video in videos:
-                    if video:
+                    if video: 
                         producer.send('trending_raw', value=video)
                 
                 print(f"¡Éxito! Se enviaron {len(videos)} registros a Kafka.")
