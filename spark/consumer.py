@@ -5,17 +5,23 @@ import redis
 
 spark = SparkSession.builder \
     .appName("EngagementPipeline") \
-    .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1") \
+    .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.postgresql:postgresql:42.6.0") \
     .getOrCreate()
-
 spark.sparkContext.setLogLevel("WARN")
 
 esquema_video = StructType([
     StructField("id", StringType(), True),
     StructField("title", StringType(), True),
+    StructField("platform", StringType(), True),
     StructField("view_count", LongType(), True),
     StructField("like_count", LongType(), True),
-    StructField("comment_count", LongType(), True)
+    StructField("dislike_count", LongType(), True),
+    StructField("comment_count", LongType(), True),
+    StructField("country", StringType(), True),
+    StructField("locality", StringType(), True),
+    StructField("upload_date", StringType(), True),
+    StructField("duration", LongType(), True),
+    StructField("extraction_date", StringType(), True)
 ])
 
 df_kafka = spark \
@@ -36,6 +42,7 @@ df_con_tiempo = df_json.withColumn("timestamp", current_timestamp())
 df_limpio = df_con_tiempo.fillna({
     'view_count': 0, 
     'like_count': 0, 
+    'dislike_count': 0,
     'comment_count': 0
 })
 
@@ -59,7 +66,7 @@ df_agregado = df_engagement \
     .max("engagement_score") \
     .withColumnRenamed("max(engagement_score)", "score_actual")
 
-def write(df, epoch_id):
+def write_redis(df, epoch_id):
     pdf = df.toPandas()
     if not pdf.empty:
         try:
@@ -70,9 +77,25 @@ def write(df, epoch_id):
         except Exception as e:
             print(f"Error guardando en Redis: {e}")
 
-query = df_agregado.writeStream \
-    .foreachBatch(write) \
+query_redis = df_agregado.writeStream \
+    .foreachBatch(write_redis) \
     .outputMode("update") \
     .start()
 
-query.awaitTermination()
+def write_postgres(df, epoch_id):
+    df.write \
+        .format("jdbc") \
+        .option("driver", "org.postgresql.Driver") \
+        .option("url", "jdbc:postgresql://postgres:5432/viral_history") \
+        .option("dbtable", "historical_events") \
+        .option("user", "admin") \
+        .option("password", "adminpassword") \
+        .mode("append") \
+        .save()
+
+query_pg = df_engagement.writeStream \
+    .foreachBatch(write_postgres) \
+    .outputMode("append") \
+    .start()
+
+spark.streams.awaitAnyTermination()

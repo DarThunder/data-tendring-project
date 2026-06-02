@@ -76,3 +76,12 @@ services:
       - "8501:8501"
     depends_on:
       - redis
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: adminpassword
+      POSTGRES_DB: viral_history
+    ports:
+      - "5432:5432"

@@ -1,2 +1,4 @@
 yt-dlp
 kafka-python
+google-api-python-client
+python-dotenv # i'm a fucking retarded lol
