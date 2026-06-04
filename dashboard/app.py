@@ -8,6 +8,16 @@ from datetime import timedelta
 st.set_page_config(page_title="Trending Dashboard", layout="wide")
 st.title("Pipeline de Engagement")
 
+reporte = st.sidebar.selectbox(
+    "Reportes",
+    [
+        "Top Videos",
+        "Engagement Promedio",
+        "Videos Procesados",
+        "Comparativo Semanal"
+    ]
+)
+
 @st.cache_resource
 def get_redis_connection():
     return redis.Redis(host='redis', port=6379, db=0, decode_responses=True)
@@ -76,6 +86,76 @@ with tab2:
                 if not df_mes.empty:
                     top_mes = df_mes.loc[df_mes['view_count'].idxmax()]
                     col_mes.metric(label="Top del Mes", value=top_mes['title'][:30]+"...", delta=f"{int(top_mes['view_count']):,} vistas")
+
+                st.divider()
+
+                st.markdown("## Reportes")
+
+                if reporte == "Top Videos":
+
+                    top_videos = (
+                        df_hist.groupby("title")["view_count"]
+                        .max()
+                        .reset_index()
+                        .sort_values(
+                            by="view_count",
+                            ascending=False
+                        )
+                        .head(10)
+                    )
+
+                    st.subheader("Top 10 Videos Más Vistos")
+
+                    st.bar_chart(
+                        top_videos.set_index("title")
+                    )
+
+                elif reporte == "Engagement Promedio":
+
+                    df_hist["engagement_score"] = (
+                        df_hist["view_count"]
+                        + (df_hist["like_count"] * 5)
+                        + (df_hist["comment_count"] * 10)
+                    )
+
+                    promedio = df_hist["engagement_score"].mean()
+
+                    st.metric(
+                        "Engagement Promedio",
+                        f"{promedio:,.0f}"
+                    )
+
+                elif reporte == "Videos Procesados":
+
+                    st.metric(
+                        "Videos Procesados",
+                        len(df_hist)
+                    )
+
+                elif reporte == "Comparativo Semanal":
+
+                    df_hist["upload_date"] = pd.to_datetime(
+                        df_hist["upload_date"]
+                    )
+
+                    semanal = (
+                        df_hist.groupby(
+                            pd.Grouper(
+                                key="upload_date",
+                                freq="W"
+                            )
+                        )["view_count"]
+                        .sum()
+                        .reset_index()
+                    )
+
+                    st.subheader(
+                        "Comparativo Semanal de Vistas"
+                    )
+
+                    st.line_chart(
+                        semanal.set_index("upload_date")
+                    )
 
                 st.divider()
 
