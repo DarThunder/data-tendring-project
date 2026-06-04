@@ -93,18 +93,21 @@ with tab2:
 
                 if reporte == "Top Videos":
 
-                    top_videos = (
-                        df_hist.groupby("title")["view_count"]
-                        .max()
-                        .reset_index()
-                        .sort_values(
-                            by="view_count",
-                            ascending=False
-                        )
-                        .head(10)
-                    )
+                    query = """
+                    SELECT
+                        dv.title,
+                        SUM(fe.engagement_score) AS total_engagement
+                    FROM fact_engagement fe
+                    JOIN dim_video dv
+                    ON fe.id_video = dv.id_video
+                    GROUP BY dv.title
+                    ORDER BY total_engagement DESC
+                    LIMIT 10;
+                    """
 
-                    st.subheader("Top 10 Videos Más Vistos")
+                    top_videos = pd.read_sql(query, conn)
+
+                    st.subheader("Top 10 Videos por Engagement (DW)")
 
                     st.bar_chart(
                         top_videos.set_index("title")
@@ -112,17 +115,17 @@ with tab2:
 
                 elif reporte == "Engagement Promedio":
 
-                    df_hist["engagement_score"] = (
-                        df_hist["view_count"]
-                        + (df_hist["like_count"] * 5)
-                        + (df_hist["comment_count"] * 10)
-                    )
+                    query = """
+                    SELECT
+                        AVG(engagement_score) promedio
+                    FROM fact_engagement;
+                    """
 
-                    promedio = df_hist["engagement_score"].mean()
+                    promedio = pd.read_sql(query, conn)
 
                     st.metric(
                         "Engagement Promedio",
-                        f"{promedio:,.0f}"
+                        f"{promedio.iloc[0]['promedio']:,.0f}"
                     )
 
                 elif reporte == "Videos Procesados":
@@ -134,27 +137,29 @@ with tab2:
 
                 elif reporte == "Comparativo Semanal":
 
-                    df_hist["upload_date"] = pd.to_datetime(
-                        df_hist["upload_date"]
-                    )
+                    query = """
+                    SELECT
+                        df.fecha,
+                        SUM(fe.engagement_score) total
+                    FROM fact_engagement fe
+                    JOIN dim_fecha df
+                    ON fe.id_fecha = df.id_fecha
+                    GROUP BY df.fecha
+                    ORDER BY df.fecha;
+                    """
 
-                    semanal = (
-                        df_hist.groupby(
-                            pd.Grouper(
-                                key="upload_date",
-                                freq="W"
-                            )
-                        )["view_count"]
-                        .sum()
-                        .reset_index()
+                    semanal = pd.read_sql(query, conn)
+
+                    semanal["fecha"] = pd.to_datetime(
+                        semanal["fecha"]
                     )
 
                     st.subheader(
-                        "Comparativo Semanal de Vistas"
+                        "Comparativo Histórico de Engagement"
                     )
 
                     st.line_chart(
-                        semanal.set_index("upload_date")
+                        semanal.set_index("fecha")
                     )
 
                 st.divider()
